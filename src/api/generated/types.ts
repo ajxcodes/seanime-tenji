@@ -1823,6 +1823,17 @@ export type Anime_ScheduleItem = {
 }
 
 /**
+ * - Filepath: internal/library/anime/schedule.go
+ * - Filename: schedule.go
+ * - Package: anime
+ */
+export type WeeklyScheduleResponse = {
+    weekStart: number
+    weekEnd: number
+    items: Array<Anime_ScheduleItem>
+}
+
+/**
  * - Filepath: internal/library/anime/collection.go
  * - Filename: collection.go
  * - Package: anime

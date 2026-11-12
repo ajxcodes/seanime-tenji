@@ -182,6 +182,11 @@ export const API_ENDPOINTS = {
             methods: ["GET"],
             endpoint: "/api/v1/library/schedule",
         },
+        GetAnimeScheduleWeekly: {
+            key: "ANIME-COLLECTION-get-anime-schedule-weekly",
+            methods: ["GET"],
+            endpoint: "/api/v1/library/schedule/weekly",
+        },
         /**
          *  @description
          *  Route adds the given media to the user's AniList planning collections

@@ -11,6 +11,10 @@ export type ScheduleSettings = {
     hideMissingEpisodes: boolean
     /** Hide the upcoming episodes shelf */
     hideUpcomingEpisodes: boolean
+    /** View layout: timeline (hour-by-hour), list (all shows for day), or grid (posters) */
+    viewMode: "timeline" | "list" | "grid"
+    /** Scope: "all" (global / all anime) or "my_list" (user watchlist only) */
+    scope: "all" | "my_list"
 }
 
 const defaultSettings: ScheduleSettings = {
@@ -18,6 +22,8 @@ const defaultSettings: ScheduleSettings = {
     indicateWatchedEpisodes: true,
     hideMissingEpisodes: false,
     hideUpcomingEpisodes: false,
+    viewMode: "timeline",
+    scope: "all",
 }
 
 export const scheduleSettingsAtom = atomWithStorage<ScheduleSettings>(
