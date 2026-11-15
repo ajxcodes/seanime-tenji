@@ -8,6 +8,7 @@ import { Ionicons } from "@/lib/icons/Ionicons"
 import { cn } from "@/lib/utils"
 import { scoreColor } from "@/lib/media-metadata"
 import { format } from "date-fns"
+import { timeFormatFor } from "@/lib/schedule-settings"
 import { router } from "expo-router"
 import * as React from "react"
 import { Animated, Platform, Pressable, Text, View } from "react-native"
@@ -33,13 +34,13 @@ export function TimelineEpisodeCard({
     const localTime = React.useMemo(() => {
         if (item.dateTime) {
             try {
-                return format(new Date(item.dateTime), "h:mm a")
+                return format(new Date(item.dateTime), timeFormatFor(settings.clock))
             } catch {
                 return item.time
             }
         }
         return item.time
-    }, [item.dateTime, item.time])
+    }, [item.dateTime, item.time, settings.clock])
 
     const episodeLabel = React.useMemo(() => {
         if (item.isMovie) return "Movie"

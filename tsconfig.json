@@ -4,7 +4,8 @@
     "strict": true,
     "allowImportingTsExtensions": true,
     "types": [
-      "node"
+      "node",
+      "expo/types"
     ],
     "paths": {
       "@/*": [

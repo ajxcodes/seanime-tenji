@@ -59,6 +59,7 @@ export type AL_AnimeCollection_MediaListCollection_Lists = {
  */
 export type AL_AnimeCollection_MediaListCollection_Lists_Entries = {
     completedAt?: AL_AnimeCollection_MediaListCollection_Lists_Entries_CompletedAt
+    createdAt?: number
     id: number
     media?: AL_BaseAnime
     notes?: string
@@ -68,6 +69,7 @@ export type AL_AnimeCollection_MediaListCollection_Lists_Entries = {
     score?: number
     startedAt?: AL_AnimeCollection_MediaListCollection_Lists_Entries_StartedAt
     status?: AL_MediaListStatus
+    updatedAt?: number
 }
 
 /**
@@ -808,6 +810,7 @@ export type AL_MangaCollection_MediaListCollection_Lists = {
  */
 export type AL_MangaCollection_MediaListCollection_Lists_Entries = {
     completedAt?: AL_MangaCollection_MediaListCollection_Lists_Entries_CompletedAt
+    createdAt?: number
     id: number
     media?: AL_BaseManga
     notes?: string
@@ -817,6 +820,7 @@ export type AL_MangaCollection_MediaListCollection_Lists_Entries = {
     score?: number
     startedAt?: AL_MangaCollection_MediaListCollection_Lists_Entries_StartedAt
     status?: AL_MediaListStatus
+    updatedAt?: number
 }
 
 /**
@@ -1543,6 +1547,8 @@ export type Anime_EntryListData = {
     repeat?: number
     startedAt?: string
     completedAt?: string
+    createdAt?: number
+    updatedAt?: number
 }
 
 /**
@@ -1820,17 +1826,9 @@ export type Anime_ScheduleItem = {
     episodeNumber: number
     isMovie: boolean
     isSeasonFinale: boolean
-}
-
-/**
- * - Filepath: internal/library/anime/schedule.go
- * - Filename: schedule.go
- * - Package: anime
- */
-export type WeeklyScheduleResponse = {
-    weekStart: number
-    weekEnd: number
-    items: Array<Anime_ScheduleItem>
+    format?: string
+    countryOfOrigin?: string
+    isAdult?: boolean
 }
 
 /**
@@ -1894,6 +1892,19 @@ export type Anime_UpcomingEpisodes = {
  * - Package: anime
  */
 export type Anime_WatchType = "localfile" | "debrid" | "torrent" | "nakama" | "online"
+
+/**
+ * - Filepath: internal/library/anime/schedule.go
+ * - Filename: schedule.go
+ * - Package: anime
+ * @description
+ *  WeeklyScheduleResponse is the response for the weekly schedule endpoint.
+ */
+export type Anime_WeeklyScheduleResponse = {
+    weekStart: number
+    weekEnd: number
+    items?: Array<Anime_ScheduleItem>
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Autodownloader
@@ -2427,7 +2438,7 @@ export type Extension_Language = "javascript" | "typescript" | "go"
  * - Package: extension
  * @description
  *  PluginAllowlist is a list of system permissions that the plugin is asking for.
- *
+ *  
  *  The user must acknowledge these permissions before the plugin can be loaded.
  */
 export type Extension_PluginAllowlist = {
@@ -3360,6 +3371,8 @@ export type Manga_EntryListData = {
     repeat?: number
     startedAt?: string
     completedAt?: string
+    createdAt?: number
+    updatedAt?: number
 }
 
 /**
@@ -6166,3 +6179,4 @@ export type Video = {
     colorTransfer: string
     colorPrimaries: string
 }
+

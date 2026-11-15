@@ -2,6 +2,7 @@ import type { ScheduleSettings } from "@/atoms/schedule.atoms"
 import { TV, tvSize } from "@/components/tv/tv-scale"
 import { Ionicons } from "@/lib/icons/Ionicons"
 import { format } from "date-fns"
+import { hourLabelFormatFor } from "@/lib/schedule-settings"
 import sortBy from "lodash/sortBy"
 import * as React from "react"
 import {
@@ -63,7 +64,7 @@ export function ScheduleTimeline({
         return sortedHours.map((hour) => {
             const date = new Date()
             date.setHours(hour, 0, 0, 0)
-            const hourLabel = format(date, "h a")
+            const hourLabel = format(date, hourLabelFormatFor(settings.clock))
             const episodes = sortBy(map.get(hour) ?? [], [(e) => e.dateTime, (e) => e.episodeNumber])
             return {
                 hour,
@@ -71,7 +72,7 @@ export function ScheduleTimeline({
                 episodes,
             }
         })
-    }, [events])
+    }, [events, settings.clock])
 
     const gap = Platform.isTV ? tvSize(14) : 10
     const paddingHorizontal = Platform.isTV ? TV.gutter : 14

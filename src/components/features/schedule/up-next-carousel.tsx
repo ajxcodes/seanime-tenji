@@ -1,9 +1,12 @@
 import type { AL_BaseAnime, Anime_EpisodeMetadata, Anime_UpcomingEpisode } from "@/api/generated/types"
 import { useServerStatus } from "@/atoms/server.atoms"
+import { scheduleSettingsAtom } from "@/atoms/schedule.atoms"
+import { useAtom } from "jotai/react"
 import { useTVFocus } from "@/components/tv/tv-focus"
 import { TV, tvSize } from "@/components/tv/tv-scale"
 import { SeaImage } from "@/components/shared/sea-image"
 import { getEpisodeSpoilerState, getSpoilerSafeAnimeImage } from "@/lib/anime-spoilers"
+import { timeFormatFor } from "@/lib/schedule-settings"
 import { Ionicons } from "@/lib/icons/Ionicons"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
@@ -96,12 +99,13 @@ function UpNextCard({ item, cardWidth, isFirst }: { item: UpNextItem; cardWidth:
     const tvFocus = useTVFocus(1.04, `up-next-${item.id}`)
     const countdown = useCountdown(item.airingAt)
     const serverStatus = useServerStatus()
+    const [settings] = useAtom(scheduleSettingsAtom)
     const blurAdultContent = !!serverStatus?.settings?.anilist?.blurAdultContent && !!item.media?.isAdult
 
     const airDate = new Date(item.airingAt * 1000)
     const airTimeLabel = isFirst
-        ? `Up next · ${format(airDate, "h:mm a")}`
-        : format(airDate, "EEE · h:mm a")
+        ? `Up next · ${format(airDate, timeFormatFor(settings.clock))}`
+        : format(airDate, `EEE · ${timeFormatFor(settings.clock)}`)
 
     const spoiler = getEpisodeSpoilerState(serverStatus, {
         episodeNumber: item.episodeNumber,

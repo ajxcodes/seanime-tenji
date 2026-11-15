@@ -1,7 +1,7 @@
 import { useServerMutation, useServerQuery } from "@/api/client/requests"
 import { AddUnknownMedia_Variables } from "@/api/generated/endpoint.types"
 import { API_ENDPOINTS } from "@/api/generated/endpoints"
-import { AL_AnimeCollection, Anime_LibraryCollection, Anime_ScheduleItem, WeeklyScheduleResponse } from "@/api/generated/types"
+import { AL_AnimeCollection, Anime_LibraryCollection, Anime_ScheduleItem, Anime_WeeklyScheduleResponse } from "@/api/generated/types"
 import { useRefreshAnimeCollection } from "@/api/hooks/anilist.hooks"
 import { toast } from "@/lib/utils/toast"
 import { useQueryClient } from "@tanstack/react-query"
@@ -43,16 +43,17 @@ export function useGetAnimeCollectionSchedule({ enabled }: { enabled?: boolean }
     })
 }
 
-export function useGetAnimeScheduleWeekly({ weekStart, scope, refresh, enabled }: { weekStart?: number; scope?: "all" | "my_list"; refresh?: boolean; enabled?: boolean }) {
-    return useServerQuery<WeeklyScheduleResponse>({
+export function useGetAnimeScheduleWeekly({ weekStart, scope, adult, refresh, enabled }: { weekStart?: number; scope?: "all" | "my_list"; adult?: "hide" | "show" | "only"; refresh?: boolean; enabled?: boolean }) {
+    return useServerQuery<Anime_WeeklyScheduleResponse>({
         endpoint: API_ENDPOINTS.ANIME_COLLECTION.GetAnimeScheduleWeekly.endpoint,
         method: API_ENDPOINTS.ANIME_COLLECTION.GetAnimeScheduleWeekly.methods[0],
         params: {
             weekStart: weekStart ?? undefined,
             scope: scope ?? "all",
+            adult: adult ?? "hide",
             refresh: refresh ?? false,
         },
-        queryKey: [API_ENDPOINTS.ANIME_COLLECTION.GetAnimeScheduleWeekly.key, weekStart, scope],
+        queryKey: [API_ENDPOINTS.ANIME_COLLECTION.GetAnimeScheduleWeekly.key, weekStart, scope, adult ?? "hide"],
         enabled: enabled ?? true,
         staleTime: 1000 * 60 * 5, // 5 minutes — matches server TTL
         gcTime: 1000 * 60 * 30, // keep cache for 30 minutes

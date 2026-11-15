@@ -182,6 +182,13 @@ export const API_ENDPOINTS = {
             methods: ["GET"],
             endpoint: "/api/v1/library/schedule",
         },
+        /**
+         *  @description
+         *  Route returns combined anime schedule for a week.
+         *  Returns schedule items for a week (Monday to Sunday) combining airing schedules, movies, and collection entries.
+         *  Used by the Schedule page for both "All" and "My List" scopes.
+         *  Optional query param "adult": "hide" (default) filters out adult entries, "show" includes them, "only" shows only adult entries.
+         */
         GetAnimeScheduleWeekly: {
             key: "ANIME-COLLECTION-get-anime-schedule-weekly",
             methods: ["GET"],
@@ -1746,8 +1753,8 @@ export const API_ENDPOINTS = {
          *  Route returns the episode list for the given media and provider.
          *  It returns the episode list for the given media and provider.
          *  The episodes are cached using a file cache.
-         *  The episode list is just a list of episodes with no video sources, it's what the client uses to display the episodes and subsequently
-         *     fetch the sources. The episode list might be nil or empty if nothing could be found, but the media will always be returned.
+         *  The episode list is just a list of episodes with no video sources, it's what the client uses to display the episodes and subsequently fetch the sources.
+         *  The episode list might be nil or empty if nothing could be found, but the media will always be returned.
          */
         GetOnlineStreamEpisodeList: {
             key: "ONLINESTREAM-get-online-stream-episode-list",

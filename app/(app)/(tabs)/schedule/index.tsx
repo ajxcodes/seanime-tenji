@@ -1,21 +1,20 @@
-import { AL_BaseAnime, AL_MediaListStatus, Anime_ScheduleItem } from "@/api/generated/types"
+import { AL_BaseAnime, Anime_ScheduleItem } from "@/api/generated/types"
 import { useGetAnimeScheduleWeekly } from "@/api/hooks/anime_collection.hooks"
 import { useGetMissingEpisodes, useGetUpcomingEpisodes } from "@/api/hooks/anime_entries.hooks"
 import { useAnilistAnimeCollectionAtom, useAnilistAnimeEntryListDataAtom } from "@/atoms/anilist-collection.atoms"
-import { ScheduleSettings, scheduleSettingsAtom } from "@/atoms/schedule.atoms"
+import { ScheduleSettings, scheduleSettingsAtom, normalizeScheduleSettings } from "@/atoms/schedule.atoms"
 import { useServerStatus } from "@/atoms/server.atoms"
 import { EpisodeCard } from "@/components/features/anime/episode-card"
 import { MediaEntryCard } from "@/components/features/media/media-entry-card"
+import { ScheduleSettingsSheet } from "@/components/features/schedule/schedule-settings-sheet"
 import { ScheduleFlatList, ScheduleTimeline } from "@/components/features/schedule/schedule-timeline"
 import { UpNextCarousel, type UpNextItem } from "@/components/features/schedule/up-next-carousel"
 import { WeekDayStrip } from "@/components/features/schedule/week-day-strip"
 import { TV, tvSize } from "@/components/tv/tv-scale"
 import { SafeView } from "@/components/layout/layout-view"
 import { TabFadeView } from "@/components/layout/tab-fade-view"
-import { LabeledSwitch } from "@/components/shared/labeled-switch"
 import { OfflineBanner } from "@/components/shared/offline-banner"
-import { RowDivider } from "@/components/shared/row-divider"
-import { Surface } from "@/components/shared/surface"
+import { isAdultVisible, isCountryVisible, isFormatVisible, timeFormatFor } from "@/lib/schedule-settings"
 import { SeaBottomSheet } from "@/components/ui/bottom-sheet"
 import { useIOSScrollRefreshRateWorkaround } from "@/hooks/use-ios-scroll-refresh-rate-workaround"
 import { getEpisodeSpoilerState, getSpoilerSafeAnimeImage } from "@/lib/anime-spoilers"
@@ -58,7 +57,17 @@ export default function ScheduleScreen() {
 
     useIOSScrollRefreshRateWorkaround()
 
-    const [settings, setSettings] = useAtom(scheduleSettingsAtom)
+    const [storedSettings, setStoredSettings] = useAtom(scheduleSettingsAtom)
+    const settings = React.useMemo(() => normalizeScheduleSettings(storedSettings), [storedSettings])
+    const setSettings = React.useCallback(
+        (update: ScheduleSettings | ((prev: ScheduleSettings) => ScheduleSettings)) => {
+            setStoredSettings(prevStored => {
+                const base = normalizeScheduleSettings(prevStored)
+                return typeof update === "function" ? update(base) : update
+            })
+        },
+        [setStoredSettings],
+    )
     const { animeCollection } = useAnilistAnimeCollectionAtom()
     const { animeEntryListData } = useAnilistAnimeEntryListDataAtom()
 
@@ -88,6 +97,7 @@ export default function ScheduleScreen() {
     } = useGetAnimeScheduleWeekly({
         weekStart: weekStartSec,
         scope: settings.scope,
+        adult: settings.adult,
         enabled: isConnected,
     })
     const weeklyItems = React.useMemo(() => weeklyResponse?.items ?? [], [weeklyResponse?.items])
@@ -127,6 +137,10 @@ export default function ScheduleScreen() {
         for (const item of weeklyItems) {
             if (!item.dateTime) continue
 
+            // Format / country visibility filters
+            if (!isFormatVisible(item.format, settings.formats)) continue
+            if (!isCountryVisible(item.countryOfOrigin, settings.countries)) continue
+
             // Filter by user's list statuses (only items in their list)
             const entryData = animeEntryListData?.[String(item.mediaId)]
             if (entryData?.status && !settings.listStatuses.includes(entryData.status)) {
@@ -149,7 +163,7 @@ export default function ScheduleScreen() {
             map.set(key, sortBy(items, [(i) => i.dateTime, (i) => i.episodeNumber]))
         }
         return map
-    }, [weeklyItems, settings.listStatuses, animeEntryListData, collectionScoreMap])
+    }, [weeklyItems, settings.listStatuses, settings.formats, settings.countries, animeEntryListData, collectionScoreMap])
 
     // Up Next countdown banner items
     const upNextItems = React.useMemo<UpNextItem[]>(() => {
@@ -159,8 +173,11 @@ export default function ScheduleScreen() {
         // From upcomingEpisodes (collection-wide across all time)
         if (upcomingEpisodes?.episodes) {
             for (const ep of upcomingEpisodes.episodes) {
-                if (ep.airingAt && ep.airingAt > nowSec && ep.baseAnime) {
-                    items.push({
+                if (!(ep.airingAt && ep.airingAt > nowSec && ep.baseAnime)) continue
+                if (!isFormatVisible(ep.baseAnime.format, settings.formats)) continue
+                if (!isCountryVisible(ep.baseAnime.countryOfOrigin, settings.countries)) continue
+                if (!isAdultVisible(ep.baseAnime.isAdult, settings.adult)) continue
+                items.push({
                         id: `upcoming-${ep.baseAnime.id}-${ep.episodeNumber}`,
                         mediaId: ep.baseAnime.id,
                         title: ep.baseAnime.title?.userPreferred || ep.baseAnime.title?.english || ep.baseAnime.title?.romaji || "",
@@ -172,13 +189,14 @@ export default function ScheduleScreen() {
                         media: ep.baseAnime,
                         episodeMetadata: ep.episodeMetadata,
                     })
-                }
             }
         }
 
         // From weekly endpoint items in the future
         for (const item of weeklyItems) {
             if (!item.dateTime) continue
+            if (!isFormatVisible(item.format, settings.formats)) continue
+            if (!isCountryVisible(item.countryOfOrigin, settings.countries)) continue
             const tSec = Math.floor(new Date(item.dateTime).getTime() / 1000)
             if (
                 tSec > nowSec &&
@@ -198,7 +216,7 @@ export default function ScheduleScreen() {
         }
 
         return sortBy(items, [(i) => i.airingAt]).slice(0, 10)
-    }, [upcomingEpisodes, weeklyItems, collectionScoreMap])
+    }, [upcomingEpisodes, weeklyItems, collectionScoreMap, settings.formats, settings.countries, settings.adult])
 
     const selectedDateKey = format(selectedDate, "yyyy-MM-dd")
     const selectedDayEvents = eventsByDate.get(selectedDateKey) ?? []
@@ -480,7 +498,7 @@ function ScheduleCardWrapper({
         [item.mediaId, item.image, item.title, item.isMovie, item.rating],
     )
 
-    const localTime = item.dateTime ? format(new Date(item.dateTime), "HH:mm") : item.time
+    const localTime = item.dateTime ? format(new Date(item.dateTime), timeFormatFor(settings.clock)) : item.time
 
     const isWatchedAndDimmed = item.isWatched && settings.indicateWatchedEpisodes
 
@@ -602,234 +620,6 @@ function ScheduleEpisodeShelf({ title, episodes }: { title: string; episodes: Sh
                 }}
             />
         </View>
-    )
-}
-
-const STATUS_OPTIONS: { label: string; value: AL_MediaListStatus }[] = [
-    { label: "Watching", value: "CURRENT" },
-    { label: "Planning", value: "PLANNING" },
-    { label: "Completed", value: "COMPLETED" },
-    { label: "Paused", value: "PAUSED" },
-    { label: "Repeating", value: "REPEATING" },
-]
-
-function ScheduleSettingsSheet({
-    open,
-    onOpenChange,
-    settings,
-    onSettingsChange,
-}: {
-    open: boolean
-    onOpenChange: (open: boolean) => void
-    settings: ScheduleSettings
-    onSettingsChange: (update: ScheduleSettings | ((prev: ScheduleSettings) => ScheduleSettings)) => void
-}) {
-    function toggleStatus(status: AL_MediaListStatus) {
-        onSettingsChange((prev) => {
-            const current = prev.listStatuses
-            const next = current.includes(status)
-                ? current.filter((s) => s !== status)
-                : [...current, status]
-            return { ...prev, listStatuses: next }
-        })
-    }
-
-    function toggleIndicateWatched() {
-        onSettingsChange((prev) => ({
-            ...prev,
-            indicateWatchedEpisodes: !prev.indicateWatchedEpisodes,
-        }))
-    }
-
-    function toggleMissingEpisodes() {
-        onSettingsChange((prev) => ({
-            ...prev,
-            hideMissingEpisodes: !(prev.hideMissingEpisodes ?? false),
-        }))
-    }
-
-    function toggleUpcomingEpisodes() {
-        onSettingsChange((prev) => ({
-            ...prev,
-            hideUpcomingEpisodes: !(prev.hideUpcomingEpisodes ?? false),
-        }))
-    }
-
-    return (
-        <SeaBottomSheet open={open} onOpenChange={onOpenChange} title="Schedule settings" snapPoints={["70%"]}>
-            <View className="gap-5">
-                <View className="gap-2">
-                    <Text className="text-sm font-medium text-white/50">Schedule Scope</Text>
-                    <View className="flex-row gap-2">
-                        <Pressable
-                            onPress={() => onSettingsChange((prev) => ({ ...prev, scope: "all" }))}
-                            className={cn(
-                                "flex-1 flex-row items-center justify-center gap-2 rounded-xl py-3 border",
-                                settings.scope === "all"
-                                    ? "bg-brand-500/20 border-brand-500"
-                                    : "bg-white/[0.04] border-white/10",
-                            )}
-                        >
-                            <Ionicons
-                                name="globe-outline"
-                                size={18}
-                                color={settings.scope === "all" ? "rgb(184, 176, 255)" : "rgba(255,255,255,0.6)"}
-                            />
-                            <Text
-                                className={cn(
-                                    "text-sm font-semibold",
-                                    settings.scope === "all" ? "text-white" : "text-white/60",
-                                )}
-                            >
-                                All
-                            </Text>
-                        </Pressable>
-                        <Pressable
-                            onPress={() => onSettingsChange((prev) => ({ ...prev, scope: "my_list" }))}
-                            className={cn(
-                                "flex-1 flex-row items-center justify-center gap-2 rounded-xl py-3 border",
-                                settings.scope === "my_list"
-                                    ? "bg-brand-500/20 border-brand-500"
-                                    : "bg-white/[0.04] border-white/10",
-                            )}
-                        >
-                            <Ionicons
-                                name="bookmark-outline"
-                                size={18}
-                                color={settings.scope === "my_list" ? "rgb(184, 176, 255)" : "rgba(255,255,255,0.6)"}
-                            />
-                            <Text
-                                className={cn(
-                                    "text-sm font-semibold",
-                                    settings.scope === "my_list" ? "text-white" : "text-white/60",
-                                )}
-                            >
-                                My List
-                            </Text>
-                        </Pressable>
-                    </View>
-                </View>
-
-                <View className="gap-2">
-                    <Text className="text-sm font-medium text-white/50">Display Layout</Text>
-                    <View className="flex-row gap-2">
-                        <Pressable
-                            onPress={() => onSettingsChange((prev) => ({ ...prev, viewMode: "timeline" }))}
-                            className={cn(
-                                "flex-1 flex-row items-center justify-center gap-1.5 rounded-xl py-3 border",
-                                settings.viewMode === "timeline"
-                                    ? "bg-brand-500/20 border-brand-500"
-                                    : "bg-white/[0.04] border-white/10",
-                            )}
-                        >
-                            <Ionicons
-                                name="time-outline"
-                                size={17}
-                                color={settings.viewMode === "timeline" ? "rgb(184, 176, 255)" : "rgba(255,255,255,0.6)"}
-                            />
-                            <Text
-                                className={cn(
-                                    "text-xs font-semibold",
-                                    settings.viewMode === "timeline" ? "text-white" : "text-white/60",
-                                )}
-                            >
-                                Timeline
-                            </Text>
-                        </Pressable>
-                        <Pressable
-                            onPress={() => onSettingsChange((prev) => ({ ...prev, viewMode: "list" }))}
-                            className={cn(
-                                "flex-1 flex-row items-center justify-center gap-1.5 rounded-xl py-3 border",
-                                settings.viewMode === "list"
-                                    ? "bg-brand-500/20 border-brand-500"
-                                    : "bg-white/[0.04] border-white/10",
-                            )}
-                        >
-                            <Ionicons
-                                name="list-outline"
-                                size={17}
-                                color={settings.viewMode === "list" ? "rgb(184, 176, 255)" : "rgba(255,255,255,0.6)"}
-                            />
-                            <Text
-                                className={cn(
-                                    "text-xs font-semibold",
-                                    settings.viewMode === "list" ? "text-white" : "text-white/60",
-                                )}
-                            >
-                                Flat List
-                            </Text>
-                        </Pressable>
-                        <Pressable
-                            onPress={() => onSettingsChange((prev) => ({ ...prev, viewMode: "grid" }))}
-                            className={cn(
-                                "flex-1 flex-row items-center justify-center gap-1.5 rounded-xl py-3 border",
-                                settings.viewMode === "grid"
-                                    ? "bg-brand-500/20 border-brand-500"
-                                    : "bg-white/[0.04] border-white/10",
-                            )}
-                        >
-                            <Ionicons
-                                name="grid-outline"
-                                size={17}
-                                color={settings.viewMode === "grid" ? "rgb(184, 176, 255)" : "rgba(255,255,255,0.6)"}
-                            />
-                            <Text
-                                className={cn(
-                                    "text-xs font-semibold",
-                                    settings.viewMode === "grid" ? "text-white" : "text-white/60",
-                                )}
-                            >
-                                Grid
-                            </Text>
-                        </Pressable>
-                    </View>
-                </View>
-
-                {settings.scope === "my_list" && (
-                    <View className="gap-2">
-                        <Text className="text-sm font-medium text-white/50">Filter by status</Text>
-                        <Surface variant="muted" className="overflow-hidden">
-                            {STATUS_OPTIONS.map((opt, i) => {
-                                const active = settings.listStatuses.includes(opt.value)
-                                return (
-                                    <React.Fragment key={opt.value}>
-                                        {i > 0 && <RowDivider />}
-                                        <Pressable
-                                            onPress={() => toggleStatus(opt.value)}
-                                            className="flex-row items-center justify-between px-4 py-3"
-                                        >
-                                            <Text className={cn("text-sm", active ? "text-white" : "text-white/50")}>
-                                                {opt.label}
-                                            </Text>
-                                            {active && <Ionicons name="checkmark" size={18} color="rgb(97,82,223)" />}
-                                        </Pressable>
-                                    </React.Fragment>
-                                )
-                            })}
-                        </Surface>
-                    </View>
-                )}
-
-                <View className="gap-3 px-1">
-                    <LabeledSwitch
-                        label="Indicate watched episodes"
-                        helper="Dim episodes you've already watched"
-                        checked={settings.indicateWatchedEpisodes}
-                        onToggle={toggleIndicateWatched}
-                    />
-                    <LabeledSwitch
-                        label="Hide missing episodes"
-                        checked={settings.hideMissingEpisodes ?? false}
-                        onToggle={toggleMissingEpisodes}
-                    />
-                    <LabeledSwitch
-                        label="Hide upcoming episodes"
-                        checked={settings.hideUpcomingEpisodes ?? false}
-                        onToggle={toggleUpcomingEpisodes}
-                    />
-                </View>
-            </View>
-        </SeaBottomSheet>
     )
 }
 
